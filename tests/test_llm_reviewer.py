@@ -9,6 +9,7 @@ modelo en tests/llm_logs/. No reemplaza las garantías deterministas de test_aud
     python -m pytest -m llm tests/test_llm_reviewer.py
 """
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -49,6 +50,8 @@ def test_revisor_llm_encuentra_fuga_escapada(tmp_path):
         "salida": salida, "review_json": leer(run, "review.json") if (run / "review.json").exists() else None,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    if not (run / "review.json").exists() and re.search(r"(Failed to authenticate|not logged in|OAuth|/login)", r.stdout + r.stderr, re.I):
+        pytest.skip("el CLI `claude` no está autenticado (vuelve a iniciar sesión con `claude` → /login); no es un fallo del revisor")
     assert (run / "review.json").exists(), f"el revisor no envió dictamen:\n{r.stdout[-3000:]}\n{r.stderr[-2000:]}"
     R = leer(run, "review.json")
     del_revisor = [v for v in R["hallazgos"].values() if v["origen"] == "revisor"]

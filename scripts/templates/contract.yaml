@@ -28,6 +28,7 @@ prediccion:
 #   con_retraso          (requiere `retraso: k`; usable solo si k >= horizonte)
 #   posterior            (se conoce después de predecir: NO es usable)
 #   desconocida          (requiere excepción documentada en excepciones_disponibilidad)
+# `descripcion` (opcional) dice qué es exactamente el dato (p. ej. pronóstico vs valor real).
 # `linaje` (opcional) permite al auditor reconstruir la feature: {fuente: col, desfase: k}
 # significa feature_t == fuente_{t-k} dentro de cada entidad.
 features: {}

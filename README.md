@@ -69,7 +69,9 @@ falta y cómo resolverlo, y sale con código ≠ 0.
   y cobertura, guarda predicciones fuera de muestra, registra fallos y nunca sobrescribe experimentos.
 - Comparación: Nadeau–Bengio (kfold), bootstrap pareado por entidad (grupos) o por bloques temporales
   (forecasting), Holm sobre una familia explícita, margen práctico, elección determinista del más
-  simple, estados `concluyente | provisional | operativa | override`.
+  simple, estados `concluyente | provisional | operativa | override`. Cada candidato reporta el IC de
+  su propia métrica con la unidad de remuestreo del diseño (la desviación entre folds puede subestimar
+  la incertidumbre, p. ej. con folds estratificados por grupos).
 - Diagnóstico estructurado (`accionable | sin_hallazgos | no_evaluable`), auditoría determinista
   (reconstrucción de splits, reproducción y re-ejecución de métricas con tolerancias, prueba del lote,
   linaje "viaje en el tiempo"), revisión por rondas con bloqueo ante bloqueantes abiertos.

@@ -221,7 +221,12 @@ def comparar(run, override: str | None = None, justificacion: str | None = None)
         fold_tab = {x["run_id"]: pd.DataFrame(x["_rec"]["metricas_por_fold"]).groupby("fold")[pm].mean() for x in eleg}
         detalle = {"J": J, "n_val/n_train": round(float(ratio), 4), "supuestos": "folds intercambiables; corrección por solapamiento de entrenamientos"}
         unidades = J
+        tq = stats.t.ppf(1 - alfa / 2, max(J - 1, 1))
         for x in eleg:
+            # IC de la métrica del propio candidato (misma corrección de Nadeau–Bengio)
+            f = fold_tab[x["run_id"]].values
+            se = math.sqrt((1.0 / J + ratio) * float(np.var(f, ddof=1))) if J > 1 else float("nan")
+            x["ic_metrica"] = [float(f.mean() - tq * se), float(f.mean() + tq * se)] if inferencia else None
             if x is mejor:
                 continue
             d = signo * (fold_tab[mejor["run_id"]] - fold_tab[x["run_id"]]).reindex(fold_tab[mejor["run_id"]].index).values
@@ -244,15 +249,20 @@ def comparar(run, override: str | None = None, justificacion: str | None = None)
             agg = m.get("agregacion", "media_folds")
             dist_m = bs.distribucion(preds[mejor["run_id"]], pm, clases, agg)
             for x in eleg:
+                dist = dist_m if x is mejor else bs.distribucion(preds[x["run_id"]], pm, clases, agg)
+                df_ = dist[np.isfinite(dist)]
+                # IC de la métrica del propio candidato, con la unidad de remuestreo del diseño (entidad o bloque)
+                x["ic_metrica"] = [float(np.quantile(df_, alfa / 2)), float(np.quantile(df_, 1 - alfa / 2))]
                 if x is mejor:
                     continue
-                dist = bs.distribucion(preds[x["run_id"]], pm, clases, agg)
                 dd = signo * (dist_m - dist)
                 dd = dd[np.isfinite(dd)]
                 x.update({"ic": [float(np.quantile(dd, alfa / 2)), float(np.quantile(dd, 1 - alfa / 2))],
                           "p_noinf": float((1 + np.sum(dd >= margen)) / (len(dd) + 1)),
                           "p_inf": float((1 + np.sum(dd <= margen)) / (len(dd) + 1))})
     mejor.update({"ic": [0.0, 0.0], "veredicto": "mejor"})
+    for x in C:
+        x.setdefault("ic_metrica", None)
     otros = [x for x in eleg if x is not mejor]
     if inferencia and otros:
         a1, a2 = holm([x["p_noinf"] for x in otros]), holm([x["p_inf"] for x in otros])
@@ -342,7 +352,9 @@ def comparar(run, override: str | None = None, justificacion: str | None = None)
            "seleccion": {"run_id": sel["run_id"], "id": sel["id"], "estado": estado, "criterio": criterio},
            "vs_ingenuo": vs_ing, "congelado": congelado, "advertencias": advert,
            "familia_holm": "cada candidato elegible vs el mejor (no inferioridad e inferioridad por separado)",
-           "nota_ic": f"IC bilateral al {1 - alfa:.0%} de la degradación vs el mejor; las decisiones usan pruebas unilaterales con Holm."}
+           "nota_ic": (f"IC bilaterales al {1 - alfa:.0%}. 'IC {pm}' es la incertidumbre de la métrica de cada candidato con la unidad "
+                       "de remuestreo del diseño; la desviación entre folds puede subestimarla (p. ej. con folds estratificados). "
+                       "Las decisiones usan pruebas unilaterales sobre la degradación vs el mejor, con Holm.")}
     return out
 
 
@@ -353,12 +365,14 @@ def _md(out: dict) -> str:
          f"margen práctico {out['margen_practico']}, alfa {out['alfa']}.",
          f"Método: {out['metodo']} {out['detalle_metodo']}. Inferencia válida: {out['inferencia_valida']}"
          + (f" ({out['motivo_sin_inferencia']})" if out["motivo_sin_inferencia"] else "") + ".", "",
-         "| candidato | tipo | familia | #feat | " + pm + " | std folds | std semillas | degradación | IC | veredicto | elegible |",
-         "|---|---|---|---|---|---|---|---|---|---|---|"]
+         "| candidato | tipo | familia | #feat | " + pm + " | IC " + pm + " | std folds | std semillas | degradación | IC degradación | veredicto | elegible |",
+         "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     f = lambda v: "—" if v is None else (f"{v:.4g}" if isinstance(v, (int, float)) else str(v))
     for x in sorted(out["candidatos"], key=lambda x: x["deg"]):
         ic = x.get("ic")
+        im = x.get("ic_metrica")
         L.append(f"| {x['run_id']} {x['nombre']} | {x['tipo']} | {x['familia']} | {x['n_features']} | {f(x['valor'])} | "
+                 f"{'—' if not im else f'[{im[0]:.4g}, {im[1]:.4g}]'} | "
                  f"{f(x['std_entre_folds'])} | {f(x['std_entre_semillas'])} | {f(x['deg'])} | "
                  f"{'—' if not ic else f'[{ic[0]:.4g}, {ic[1]:.4g}]'} | {x.get('veredicto', '—')} | "
                  f"{'sí' if x['elegible'] else 'no: ' + str(x['motivo_no_elegible'])} |")

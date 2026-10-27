@@ -66,6 +66,9 @@ def test_recorrido_completo(tmp_path, tipo):
     r1 = correr("holdout.py", "evaluate", run=run, check=True)
     r2 = correr("holdout.py", "evaluate", run=run, check=True)
     assert "no se recalcula" in r2.stdout
+    C = leer(run, "comparison.json")
+    sel = next(x for x in C["candidatos"] if x["run_id"] == C["seleccion"]["run_id"])
+    assert sel["ic_metrica"] is None or sel["ic_metrica"][0] <= sel["valor"] <= sel["ic_metrica"][1]
     H = leer(run, "holdout_result.json")
     assert H["ic_principal"][0] <= H["metricas"][H["metrica_principal"]]["valor"] <= H["ic_principal"][1]
 

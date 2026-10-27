@@ -42,13 +42,18 @@ def _figura_escalera(cmpj: dict, dest: Path) -> str:
     dest.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(7, 0.35 * len(C) + 1.2))
     y = np.arange(len(C))
-    plt.errorbar([x["valor"] for x in C], y, xerr=[x["std_entre_folds"] or 0 for x in C], fmt="o", capsize=3)
+    con_ic = all(x.get("ic_metrica") for x in C)
+    if con_ic:
+        err = [[x["valor"] - x["ic_metrica"][0] for x in C], [x["ic_metrica"][1] - x["valor"] for x in C]]
+    else:
+        err = [x["std_entre_folds"] or 0 for x in C]
+    plt.errorbar([x["valor"] for x in C], y, xerr=err, fmt="o", capsize=3)
     plt.yticks(y, [f"{x['run_id']} ({x['familia']})" for x in C])
     sel = cmpj["seleccion"]["run_id"]
     for i, x in enumerate(C):
         if x["run_id"] == sel:
             plt.plot(x["valor"], i, "r*", ms=14)
-    plt.xlabel(f"{cmpj['metrica']} (media ± desv. entre folds)")
+    plt.xlabel(f"{cmpj['metrica']} " + ("(IC de la métrica)" if con_ic else "(media ± desv. entre folds; sin IC válido)"))
     plt.title("Escalera de modelos (★ = elegido)")
     plt.tight_layout()
     plt.savefig(dest / "escalera.png", dpi=90)
@@ -109,7 +114,9 @@ def generar(run) -> str:
     L += ["## 1. Resumen ejecutivo", "",
           f"- Modelo elegido: **{sel['run_id']}** ({'' if cand['nombre'] == cand['id'] else cand['nombre'] + ', '}familia {cand['familia']}, {cand['n_features']} features). "
           f"Estado de la elección: **{sel['estado']}**.",
-          f"- CV ({sp['esquema']}, {len(sp['folds'])} folds): {pm} = {_f(cand['valor'])} (desv. entre folds {_f(cand['std_entre_folds'])}).",
+          f"- CV ({sp['esquema']}, {len(sp['folds'])} folds): {pm} = {_f(cand['valor'])} "
+          + (f"IC [{_f(cand['ic_metrica'][0])}, {_f(cand['ic_metrica'][1])}] ({cmpj['metodo']})." if cand.get("ic_metrica")
+             else f"(desv. entre folds {_f(cand['std_entre_folds'])}; sin IC válido: {cmpj['motivo_sin_inferencia']})."),
           f"- Holdout (evaluado una sola vez, {H['n_filas']} filas): {pm} = **{_f(hval)}** IC{int(100 - 100 * float(c['comparacion'].get('alfa', 0.05)))} "
           f"[{_f(H['ic_principal'][0])}, {_f(H['ic_principal'][1])}]; diferencia vs CV {_f(H['diferencia_vs_cv'])}.",
           (f"- Frente al ingenuo {ref['run_id']} en holdout: {pm} {_f(ref['valor'])}; mejora {_f(ref['mejora'])} "
@@ -138,11 +145,13 @@ def generar(run) -> str:
           for x in leak["hallazgos"]] or ["  - ninguno"]
     L += [f"- Auditoría determinista: {A['resumen']}.", ""]
     L += ["## 5. Baselines, hipótesis y experimentos", "", f"![escalera]({fig})", "",
-          "| candidato | tipo | familia | #feat | " + pm + " | desv. folds | desv. semillas | degradación vs mejor | IC | veredicto |",
-          "|---|---|---|---|---|---|---|---|---|---|"]
+          "| candidato | tipo | familia | #feat | " + pm + " | IC " + pm + " | desv. folds | desv. semillas | degradación vs mejor | IC degradación | veredicto |",
+          "|---|---|---|---|---|---|---|---|---|---|---|"]
     for x in sorted(cmpj["candidatos"], key=lambda x: x["deg"]):
         ic = x.get("ic")
-        L.append(f"| {x['run_id']} {x['nombre']} | {x['tipo']} | {x['familia']} | {x['n_features']} | {_f(x['valor'])} | {_f(x['std_entre_folds'])} | "
+        im = x.get("ic_metrica")
+        L.append(f"| {x['run_id']} {x['nombre']} | {x['tipo']} | {x['familia']} | {x['n_features']} | {_f(x['valor'])} | "
+                 f"{'—' if not im else f'[{_f(im[0])}, {_f(im[1])}]'} | {_f(x['std_entre_folds'])} | "
                  f"{_f(x['std_entre_semillas'])} | {_f(x['deg'])} | {'—' if not ic else f'[{_f(ic[0])}, {_f(ic[1])}]'} | "
                  f"{x.get('veredicto', '—') if x['elegible'] else 'no elegible: ' + str(x['motivo_no_elegible'])} |")
     L += ["", "Hipótesis (incluidas las descartadas y fallidas):", ""]

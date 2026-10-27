@@ -2,6 +2,7 @@
 Datasets sintéticos pequeños para probar el harness, con fugas plantadas a propósito.
 
 forecasting  8 tiendas x 200 días. Tendencia + estacionalidad semanal + promociones.
+             `temp` es el pronóstico de temperatura (publicado al cierre de t), no la temperatura real.
              Fugas plantadas:
                * ventas_ajustadas = ventas * 1.02 + ruido      (derivada del target actual)
                * indice_demanda   = ventas del DÍA SIGUIENTE + ruido   (información futura disfrazada)
@@ -39,8 +40,11 @@ def forecasting(con_fuga=True, seed=7, n_tiendas=8, n_dias=200) -> pd.DataFrame:
         promo = (rng.rand(n_dias) < 0.15).astype(int)
         temp = 20 + 6 * np.sin(2 * np.pi * t / 365) + rng.normal(0, 2, n_dias)
         y = base + 0.05 * t + 10 * np.sin(2 * np.pi * dow / 7) + 15 * promo + 0.4 * (temp - 20) + rng.normal(0, 8, n_dias)
+        # `temp` es el PRONÓSTICO de temperatura para el día objetivo publicado al cierre del día t
+        # (la real más error de pronóstico): la temperatura real de t+1..t+7 no se conoce al predecir.
+        temp_pron = temp + rng.normal(0, 1.5, n_dias)
         df = pd.DataFrame({"fecha": fechas.strftime("%Y-%m-%d"), "tienda": f"T{s:02d}", "dow": dow, "promo": promo,
-                           "temp": temp.round(2), "ventas": y.round(3)})
+                           "temp": temp_pron.round(2), "ventas": y.round(3)})
         df["ventas_lag7"] = df["ventas"].shift(7)
         df["ventas_lag14"] = df["ventas"].shift(14)
         df["media_movil_7"] = df["ventas"].shift(7).rolling(7).mean().round(3)
@@ -112,7 +116,8 @@ def contrato_forecasting(con_fuga=True) -> dict:
         "tienda": {"disponibilidad": "conocida_anticipada"},
         "dow": {"disponibilidad": "conocida_anticipada"},
         "promo": {"disponibilidad": "conocida_anticipada"},
-        "temp": {"disponibilidad": "al_predecir"},
+        "temp": {"disponibilidad": "al_predecir",
+                 "descripcion": "pronóstico de temperatura para el día objetivo, publicado por el proveedor al cierre del día t"},
         "ventas_lag7": {"disponibilidad": "con_retraso", "retraso": 7, "linaje": {"fuente": "ventas", "desfase": 7}},
         "ventas_lag14": {"disponibilidad": "con_retraso", "retraso": 14, "linaje": {"fuente": "ventas", "desfase": 14}},
         "media_movil_7": {"disponibilidad": "con_retraso", "retraso": 7},

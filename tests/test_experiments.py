@@ -170,6 +170,9 @@ def test_comparacion_completa_y_gate(run):
     assert out["seleccion"]["estado"] in ("concluyente", "provisional")
     assert out["vs_ingenuo"]["p_no_mejora"] < 0.05
     assert all("ic" in x for x in out["candidatos"] if x["elegible"])
+    for x in out["candidatos"]:
+        if x["elegible"]:   # IC de la propia métrica (Nadeau–Bengio) que contiene la estimación puntual
+            assert x["ic_metrica"][0] <= x["valor"] <= x["ic_metrica"][1]
     correr("gate.py", "advance", "experimentos", run=run, check=True)
 
 
