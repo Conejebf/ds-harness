@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# los estudios contienen datos: no se versionan por defecto
+runs/*
+!runs/.gitkeep
+tests/llm_logs/
+*.lock
+.*.tmp

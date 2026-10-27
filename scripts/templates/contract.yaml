@@ -1,0 +1,88 @@
+# Contrato del estudio. Todo valor POR_DEFINIR es una decisión de negocio que NO se rellena
+# en silencio: pregúntala. Con POR_DEFINIR se permite el perfil exploratorio
+# (profile_data.py --exploratorio), pero `contract.py validate` falla.
+estudio: POR_DEFINIR
+problem_type: POR_DEFINIR            # forecasting | classification | regression
+
+datos:
+  ruta: POR_DEFINIR                  # relativa al directorio del run (CSV o parquet)
+  procedencia: POR_DEFINIR           # de dónde salió el snapshot (query, fecha, sistema)
+  id_fila: POR_DEFINIR               # columna con identificador único de fila
+  target: POR_DEFINIR
+  unidad_observacion: POR_DEFINIR    # p. ej. "tienda-día", "cliente-mes"
+  entidad: null                      # columna de entidad/grupo (tienda, cliente...) o null
+  tiempo: null                       # columna de tiempo o null
+  duplicados: accidentales           # accidentales (se eliminan y se registran) | legitimos
+  columnas_excluidas: []             # columnas que no se usan como features
+
+prediccion:
+  momento: POR_DEFINIR               # cuándo se hace la predicción, en palabras
+  horizonte: 0                       # periodos hacia adelante (forecasting >= 1; si no, 0)
+  retraso_target: 0                  # periodos que tarda en conocerse el target
+  generalizacion: POR_DEFINIR        # periodos_futuros | entidades_nuevas | entidades_conocidas
+  estacionalidad: null               # periodos por ciclo (p. ej. 7 en diario), opcional
+
+# Disponibilidad de CADA columna que no sea id/target/tiempo ni esté excluida:
+#   conocida_anticipada  (calendario, promociones planeadas)
+#   al_predecir          (se conoce en el momento de la predicción)
+#   con_retraso          (requiere `retraso: k`; usable solo si k >= horizonte)
+#   posterior            (se conoce después de predecir: NO es usable)
+#   desconocida          (requiere excepción documentada en excepciones_disponibilidad)
+# `linaje` (opcional) permite al auditor reconstruir la feature: {fuente: col, desfase: k}
+# significa feature_t == fuente_{t-k} dentro de cada entidad.
+features: {}
+excepciones_disponibilidad: {}
+
+validacion:
+  esquema: POR_DEFINIR               # temporal | grupos | estratificado | kfold
+  n_folds: 5
+  repeticiones: 1                    # >1 solo en grupos/estratificado/kfold
+  gap: 0                             # temporal: periodos entre fin de train e inicio de val (>= retraso_target)
+  tamano_validacion: null            # temporal: periodos por ventana de validación
+  semilla_split: 42
+  justificacion: POR_DEFINIR
+
+holdout:
+  estrategia: POR_DEFINIR            # temporal_final | grupos | aleatorio_estratificado | aleatorio
+  periodos: null                     # temporal_final
+  fraccion: 0.2                      # las demás
+
+metrica:
+  principal: POR_DEFINIR
+  secundarias: []
+  agregacion: media_folds            # media_folds | pooled
+  umbral: {politica: fija, valor: 0.5}   # clasificación binaria: fija | ajustada_interna (+ objetivo)
+
+comparacion:
+  margen_practico: POR_DEFINIR       # pérdida tolerable, en unidades de la métrica principal
+  alfa: 0.05
+  n_boot: 1000
+  bloque_periodos: null              # temporal: largo de bloque; null = ceil(sqrt(tamano_validacion))
+  min_unidades: 20                   # menos unidades de remuestreo => "inconcluso"
+  min_folds_nb: 5                    # menos folds en Nadeau–Bengio => "inconcluso"
+  orden_simplicidad: [ingenuo, lineal, arbol, gbm, ensamble, otro]
+  desempate: mas_simple              # mas_simple | mejor_estimado
+
+restricciones:
+  max_segundos_entrenamiento: null   # por fold
+  max_ms_prediccion_1k: null
+  familias_permitidas: null          # lista o null
+
+experimentos:
+  presupuesto: 30                    # máximo de experimentos de hipótesis
+  objetivo_hipotesis: 5
+  semillas: [0, 1, 2]                # solo para modelos con aleatoriedad relevante
+
+diagnostico:
+  segmentos: []                      # columnas para error por segmento
+  grupos_features: {}                # {nombre: [features]} para ablaciones
+
+leakage:
+  umbral_univariado_r2: 0.95
+  umbral_univariado_auc: 0.97
+  umbral_correlacion: 0.95
+
+auditoria:
+  tolerancia_rel: 1.0e-6
+  tolerancia_abs: 1.0e-9
+  alcance_reejecucion: seleccionado  # seleccionado | todos | ninguno

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/_sealed/**)",
+      "Edit(**/_sealed/**)",
+      "Edit(**/state.json)",
+      "Edit(**/experiments.jsonl)",
+      "Edit(**/review.json)",
+      "Edit(**/audit.json)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read|Write|Edit|MultiEdit|NotebookEdit|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_guard.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

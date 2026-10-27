@@ -1,0 +1,12 @@
+# Probado con Python 3.11.6 (Windows 11).
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+scikit-learn>=1.6      # GroupKFold(shuffle=...) requiere 1.6+
+statsmodels>=0.14
+pyyaml>=6.0
+matplotlib>=3.8
+pytest>=8
+# Opcionales (se detectan; no se instalan sin necesidad):
+# pyarrow>=14          # tablas internas en parquet; sin él se usa pickle
+# xgboost, lightgbm    # familias GBM alternativas en experimentos
